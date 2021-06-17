@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
+import java.util.Optional;
 
 public class TransactionDao implements ITransactionDao {
     private static Logger logger = LoggerFactory.getLogger(TransactionDao.class);
@@ -26,15 +27,18 @@ public class TransactionDao implements ITransactionDao {
     }
 
     @Override
-    public Transaction getLatestTransaction(String requestId, String query) {
+    public Optional<Transaction> getLatestTransaction(String requestId, String query) {
         try {
             Object[] params = new Object[] {requestId , requestId};
             List<Transaction> transaction = mysqlJdbcTemplate.query(query, params, new TransactionRowMapper());
-            return transaction.get(0);
+            if(transaction.size()>0) {
+                return Optional.of(transaction.get(0));
+            }
+            return Optional.empty();
         }
         catch (Exception ex) {
             logger.error("Exception while getting the status of giving request id {}. Please retry" , requestId , ex);
-            return new Transaction();
+            return Optional.empty();
         }
     }
 }

@@ -16,8 +16,7 @@ import org.mockito.Mockito;
 
 import java.util.Optional;
 
-import static com.intuit.common.constant.Constants.PROFILE_CREATED;
-import static com.intuit.common.constant.Constants.PROFILE_IN_PROGRESS;
+import static com.intuit.common.constant.Constants.*;
 
 public class RequestProcessorTest {
     private RequestProcessor requestProcessor;
@@ -76,10 +75,24 @@ public class RequestProcessorTest {
         transaction.setInputRequestMessage("inputRequestMessage");
         transaction.setTransactionStatus(TransactionStatus.IN_PROGRESS);
         Mockito.when(cacheManager.getTransaction("corrId")).thenReturn(Optional.empty());
-        Mockito.when(transactionDao.getLatestTransaction("corrId"  , getTransactionDetailsQuery)).thenReturn(transaction);
+        Mockito.when(transactionDao.getLatestTransaction("corrId"  , getTransactionDetailsQuery)).thenReturn(Optional.of(transaction));
 
         Response respone = requestProcessor.getTransactionDetails(request.getCorrelationId());
         Assertions.assertEquals(PROFILE_IN_PROGRESS , respone.getMessage());
+    }
+
+    @Test
+    public void testGetTransactionDetails_Incorrect_CorrelationId() {
+        Request request = new Request();
+        request.setCorrelationId("corrId");
+        Transaction transaction = new Transaction();
+        transaction.setCorrelationId("corrId");
+        transaction.setTransactionStatus(TransactionStatus.UNKNOWN);
+        Mockito.when(cacheManager.getTransaction("corrId")).thenReturn(Optional.empty());
+        Mockito.when(transactionDao.getLatestTransaction("corrId"  , getTransactionDetailsQuery)).thenReturn(Optional.empty());
+
+        Response respone = requestProcessor.getTransactionDetails(request.getCorrelationId());
+        Assertions.assertEquals(UNABLE_TO_FETCH_TRANSACTION , respone.getMessage());
     }
 
     @Test
@@ -100,11 +113,26 @@ public class RequestProcessorTest {
         profile.setProfileId("profileId");
         profile.setCompanyName("TestCompany");
         Mockito.when(cacheManager.getProfile("profileId")).thenReturn(Optional.empty());
-        Mockito.when(profileDao.getProfileById("profileId")).thenReturn(profile);
+        Mockito.when(profileDao.getProfileById("profileId")).thenReturn(Optional.of(profile));
 
 
         Response respone = requestProcessor.getProfileDetails("profileId");
 
         Assertions.assertEquals(profile , respone.getProfile());
+    }
+
+    @Test
+    public void testGetProfileDetails_From_DB_Incorrect_ProfileId() {
+        String profileId = "profileId";
+        Response expectedResponse = new Response();
+        expectedResponse.setProfileId(profileId);
+        expectedResponse.setMessage(UNABLE_TO_FETCH_PROFILE);
+
+        Mockito.when(cacheManager.getProfile(Mockito.eq(profileId))).thenReturn(Optional.empty());
+        Mockito.when(profileDao.getProfileById(Mockito.eq(profileId))).thenReturn(Optional.empty());
+
+        Response respone = requestProcessor.getProfileDetails(profileId);
+
+        Assertions.assertEquals(expectedResponse.getMessage() , respone.getMessage());
     }
 }

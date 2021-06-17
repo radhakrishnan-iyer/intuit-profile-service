@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class ProfileDao implements IProfileDao {
     private static Logger logger = LoggerFactory.getLogger(ProfileDao.class);
@@ -109,17 +110,17 @@ public class ProfileDao implements IProfileDao {
     }
 
     @Override
-    public Profile getProfileById(String profileId) {
+    public Optional<Profile> getProfileById(String profileId) {
         try {
             List<Profile> profile = mysqlJdbcTemplate.query(getProfileById, new Object[] {profileId} , new ProfileRowMapper());
             logger.info("Fetched profile from database using id ");
             if(profile.size()==1)
-                return profile.get(0);
-            return new Profile();
+                return Optional.of(profile.get(0));
+            return Optional.empty();
         }
         catch (Exception ex) {
             logger.error("Exception while fetching profile from DB");
-            return new Profile();
+            return Optional.empty();
         }
     }
 }

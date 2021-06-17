@@ -9,6 +9,7 @@ import com.intuit.dao.DBUtil;
 import com.intuit.dao.IProfileDao;
 import com.intuit.dao.ITransactionDao;
 import com.intuit.dao.model.Transaction;
+import com.intuit.dao.model.TransactionStatus;
 import com.intuit.service.QueuePublishService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,14 +69,25 @@ public class RequestProcessor implements IRequestProcessor {
         Optional<Transaction> transactionOptional = cacheManager.getTransaction(correlationId);
         if(!transactionOptional.isPresent()) {
             logger.info("Transaction not found in cache hence trying to fetch from DB");
-            Transaction transaction = transactionDao.getLatestTransaction(correlationId , getTransactionDetailsQuery);
-            cacheManager.addTransaction(transaction);
-            Response response = new Response();
-            response.setCorrelationId(correlationId);
-            response.setProfileId(transaction.getProfileId());
-            response.setTransactionStatus(transaction.getTransactionStatus().name());
-            setResponseMessage(response);
-            return response;
+            transactionOptional = transactionDao.getLatestTransaction(correlationId , getTransactionDetailsQuery);
+            if(transactionOptional.isPresent()) {
+                logger.info("Transaction found in database");
+                Transaction transaction = transactionOptional.get();
+                cacheManager.addTransaction(transaction);
+                Response response = new Response();
+                response.setCorrelationId(correlationId);
+                response.setProfileId(transaction.getProfileId());
+                response.setTransactionStatus(transaction.getTransactionStatus().name());
+                setResponseMessage(response);
+                return response;
+            } else {
+                logger.info("Transaction not found in database");
+                Response response = new Response();
+                response.setCorrelationId(correlationId);
+                response.setTransactionStatus(TransactionStatus.UNKNOWN.name());
+                setResponseMessage(response);
+                return response;
+            }
         }
         else {
             logger.info("Transaction found in cache");
@@ -94,6 +106,7 @@ public class RequestProcessor implements IRequestProcessor {
         logger.info("Fetching Profile from cache");
         Optional<Profile> profileOptional = cacheManager.getProfile(profileId);
         if(profileOptional.isPresent()) {
+            logger.info("Profile details found in cache");
             Profile profile = profileOptional.get();
             Response response = new Response();
             response.setProfile(profile);
@@ -102,12 +115,23 @@ public class RequestProcessor implements IRequestProcessor {
             return response;
         } else {
             logger.info("Profile details not found in cache, trying to get from DB");
-            Profile profile = profileDao.getProfileById(profileId);
-            Response response = new Response();
-            response.setProfile(profile);
-            response.setMessage("Fetched Profile details successfully");
-            response.setProfileId(profileId);
-            return response;
+            profileOptional = profileDao.getProfileById(profileId);
+            if(profileOptional.isPresent()) {
+                logger.info("Profile details found in DB");
+                Profile profile = profileOptional.get();
+                Response response = new Response();
+                response.setProfile(profile);
+                response.setMessage("Fetched Profile details successfully");
+                response.setProfileId(profileId);
+                return response;
+            }
+            else {
+                logger.info("Profile details not found in DB");
+                Response response = new Response();
+                response.setProfileId(profileId);
+                response.setMessage(UNABLE_TO_FETCH_PROFILE);
+                return response;
+            }
         }
     }
 
@@ -126,7 +150,7 @@ public class RequestProcessor implements IRequestProcessor {
                 break;
             }
             default: {
-                response.setMessage("Status Unknown");
+                response.setMessage(UNABLE_TO_FETCH_TRANSACTION);
             }
         }
     }
